@@ -55,7 +55,7 @@ level: 2
 
 # SWR 的出现解决了什么问题？
 
- HTTP 请求封装
+HTTP 请求封装
 
 <div grid="~ cols-2 gap-4">
 <div>
@@ -97,6 +97,7 @@ layout: default
 ---
 
 # 重复请求去除和响应数据缓存
+
 <div grid="~ cols-2 gap-4">
 <div>
 
@@ -124,7 +125,6 @@ function App() {
 }
 ```
 
-
 </div>
 <div>
 
@@ -147,6 +147,7 @@ function App() {
   </>
 }
 ```
+
 </div>
 </div>
 
@@ -159,7 +160,6 @@ layout: default
 
 - 未使用 SWR 的代码中，当 Avatar 组件 render 的时候，同一个接口会调用五次
 - 使用 SWR 后，当 Avatar 组件 render 的时候，接口调用会被 SWR 拦截，五次调用接口会处理成一次调用，服务端响应后的数据缓存在客户端的内存中，使用数据的地方直接从内存读取
-
 
 ---
 layout: default
@@ -176,7 +176,7 @@ layout: default
 const [data, setData] = useState(null)
 
 useEffect(() => {
-  function fetchUsers () {
+  function fetchUsers() {
     // http request
   }
 
@@ -188,7 +188,6 @@ useEffect(() => {
 }, [])
 ```
 
-
 </div>
 <div>
 
@@ -199,6 +198,7 @@ const {data, error} = useSWR(url, {
   refreshInterval: 1000
 })
 ```
+
 </div>
 </div>
 
@@ -221,7 +221,8 @@ function App() {
 }
 ```
 
-由于 SWR 的缓存，我们可以预加载下一页的页面。我们将下一页的页面渲染到隐藏的 div 中，这样 SWR 会触发下一页页面的数据获取。当用户导航到下一页时，数据就已经存在了
+由于 SWR 的缓存，我们可以预加载下一页的页面。我们将下一页的页面渲染到隐藏的 div 中，这样 SWR
+会触发下一页页面的数据获取。当用户导航到下一页时，数据就已经存在了
 
 ---
 layout: default
@@ -258,6 +259,36 @@ layout: default
 
 # 依赖请求
 
+<div grid="~ cols-2 gap-4">
+
+<div>
+
+Admin sms 页面使用 rxjs 处理接口依赖
+
+```jsx
+zip(source$, mergeRoutingDisplayName(source$))
+  .pipe(
+    map(),
+    reduce()
+  )
+  .subscribe({
+    next: (result) => {
+      setResult(result)
+    },
+    error() {
+      setHasError(true)
+    },
+    complete() {
+      setLoading(false)
+    }
+  })
+```
+
+</div>
+<div>
+
+使用 SWR 处理接口依赖
+
 ```jsx
 function MyProjects() {
   const {data: user} = useSWR('/api/user')
@@ -270,6 +301,11 @@ function MyProjects() {
   return 'You have ' + projects.length + ' projects'
 }
 ```
+
+</div>
+
+</div>
+
 
 ---
 layout: default
@@ -286,11 +322,11 @@ React 16.6.0 推出 Suspense 组件，Suspense 主要用来解决网络 IO 的�
 
 ```jsx 
  import useSWR from "swr";
-           
-function Profile() { 
+
+function Profile() {
   const {data, error, isLoading} = useSWR("/api/users/1")
-  
-  if (error) return <div>failed to load</div>    
+
+  if (error) return <div>failed to load</div>
   if (isLoading) return <div>loading...</div>
 
   // 渲染数据
@@ -305,15 +341,15 @@ function Profile() {
 使用 Suspense
 
 ```jsx
-import { Suspense } from 'react'
+import {Suspense} from 'react'
 import useSWR from 'swr'
- 
-function Profile () {
-  const { data } = useSWR('/api/users/1', { suspense: true })
+
+function Profile() {
+  const {data} = useSWR('/api/users/1', {suspense: true})
   return <div>hello, {data.name}</div>
 }
- 
-function App () {
+
+function App() {
   return (
     <ErrorBoundary fallback={<>there are errors!</>}>
       <Suspense fallback={<div>loading...</div>}>
@@ -323,8 +359,53 @@ function App () {
   )
 }
 ```
+
 </div>
 </div>
+
+---
+layout: default
+---
+
+# 乐观更新
+
+<div grid="~ cols-2 gap-4">
+<div>
+很多情况下，应用本地的数据更改是一个让人感觉快速的好方法——不需要等待远程数据源。
+
+使用 optimisticData 选项，你可以手动更新你的本地数据，同时等待远程数据更改的完成。搭配 rollbackOnError 使用，你还可以控制何时回滚数据
+</div>
+
+<div>
+```jsx
+function Profile () {
+  const { mutate } = useSWRConfig()
+  const { data } = useSWR('/api/user', fetcher)
+
+  return (
+  <>
+    <h1>My name is {data.name}.</h1>
+    <button onClick={async () => {
+      const options = {
+        optimisticData: newUser,
+        rollbackOnError(error) {
+          // 如果超时中止请求的错误，不执行回滚
+          return error.name !== 'AbortError'
+        },
+      }
+      // 立即更新本地数据, 发送一个请求以更新数据, 触发重新验证（重新请求）确保本地数据正确
+      mutate('/api/user', updateFn(newUser), options);
+    }}>Uppercase my name!</button>
+  </>
+  )
+}
+
+```
+</div>
+</div>
+
+
+
 
 ---
 layout: default
@@ -395,11 +476,15 @@ layout: default
 分析方法从特性的角度去实现
 
 - HTTP 请求的封装 - 就是利用多个 `useState` 存储状态
+
 > 源码分析
+
 - 重复请求去除和响应数据缓存
 - 轮询 - 使用 `setInterval`
 - 预请求数据
+
 > 组件未渲染之前，向服务器发送请求，把响应结果缓存，等组件渲染时直接从内存中读取
+
 - 支持 `Suspense` 模式
 
 ---
@@ -413,7 +498,6 @@ layout: default
 ---
 transition: fade-out
 ---
-
 
 # 太阳底下无新事
 
@@ -453,7 +537,7 @@ layout: default
 - [Handraw](https://handraw.top/) - 中文友好的手写效果白板工具
 - [SWR](https://swr.vercel.app/zh-CN) - 用于数据请求的 React Hooks 库
 - [PlantUML](https://plantuml.com/zh/) - 是一个允许你快速编写的组件
-- [GitHub Pages](https://pages.github.com/) - 持续部署该 PPT
+- [Vercel](https://vercel.com/dashboard) - 最好用的网站托管服务
 
 ---
 layout: center
@@ -474,7 +558,6 @@ h1 {
 </style>
 
 
-
 [//]: # (---)
 
 [//]: # (layout: image-right)
@@ -484,12 +567,15 @@ h1 {
 [//]: # (---)
 
 [//]: # ()
+
 [//]: # (# Code)
 
 [//]: # ()
+
 [//]: # (Use code snippets and get the highlighting directly![^1])
 
 [//]: # ()
+
 [//]: # (```ts {all|2|1-6|9|all})
 
 [//]: # (interface User {)
@@ -505,6 +591,7 @@ h1 {
 [//]: # (})
 
 [//]: # ()
+
 [//]: # (function updateUser&#40;id: number, update: User&#41; {)
 
 [//]: # (  const user = getUser&#40;id&#41;)
@@ -518,12 +605,15 @@ h1 {
 [//]: # (```)
 
 [//]: # ()
+
 [//]: # (<arrow v-click="3" x1="400" y1="420" x2="230" y2="330" color="#564" width="3" arrowSize="1" />)
 
 [//]: # ()
+
 [//]: # ([^1]: [Learn More]&#40;https://sli.dev/guide/syntax.html#line-highlighting&#41;)
 
 [//]: # ()
+
 [//]: # (<style>)
 
 [//]: # (.footnotes-sep {)
@@ -547,23 +637,29 @@ h1 {
 [//]: # (</style>)
 
 [//]: # ()
+
 [//]: # (---)
 
 [//]: # ()
+
 [//]: # (# Components)
 
 [//]: # ()
+
 [//]: # (<div grid="~ cols-2 gap-4">)
 
 [//]: # (<div>)
 
 [//]: # ()
+
 [//]: # (You can use Vue components directly inside your slides.)
 
 [//]: # ()
+
 [//]: # (We have provided a few built-in components like `<Tweet/>` and `<Youtube/>` that you can use directly. And adding your custom components is also super easy.)
 
 [//]: # ()
+
 [//]: # (```html)
 
 [//]: # (<Counter :count="10" />)
@@ -571,19 +667,23 @@ h1 {
 [//]: # (```)
 
 [//]: # ()
+
 [//]: # (<!-- ./components/Counter.vue -->)
 
 [//]: # (<Counter :count="10" m="t-4" />)
 
 [//]: # ()
+
 [//]: # (Check out [the guides]&#40;https://sli.dev/builtin/components.html&#41; for more.)
 
 [//]: # ()
+
 [//]: # (</div>)
 
 [//]: # (<div>)
 
 [//]: # ()
+
 [//]: # (```html)
 
 [//]: # (<Tweet id="1390115482657726468" />)
@@ -591,19 +691,23 @@ h1 {
 [//]: # (```)
 
 [//]: # ()
+
 [//]: # (<Tweet id="1390115482657726468" scale="0.65" />)
 
 [//]: # ()
+
 [//]: # (</div>)
 
 [//]: # (</div>)
 
 [//]: # ()
+
 [//]: # (<!--)
 
 [//]: # (Presenter note with **bold**, *italic*, and ~~striked~~ text.)
 
 [//]: # ()
+
 [//]: # (Also, HTML elements are valid:)
 
 [//]: # (<div class="flex w-full">)
@@ -617,7 +721,9 @@ h1 {
 [//]: # (-->)
 
 [//]: # ()
+
 [//]: # ()
+
 [//]: # (---)
 
 [//]: # (class: px-20)
@@ -625,15 +731,19 @@ h1 {
 [//]: # (---)
 
 [//]: # ()
+
 [//]: # (# Themes)
 
 [//]: # ()
+
 [//]: # (Slidev comes with powerful theming support. Themes can provide styles, layouts, components, or even configurations for tools. Switching between themes by just **one edit** in your frontmatter:)
 
 [//]: # ()
+
 [//]: # (<div grid="~ cols-2 gap-2" m="-t-2">)
 
 [//]: # ()
+
 [//]: # (```yaml)
 
 [//]: # (---)
@@ -645,6 +755,7 @@ h1 {
 [//]: # (```)
 
 [//]: # ()
+
 [//]: # (```yaml)
 
 [//]: # (---)
@@ -656,20 +767,25 @@ h1 {
 [//]: # (```)
 
 [//]: # ()
+
 [//]: # (<img border="rounded" src="https://github.com/slidevjs/themes/blob/main/screenshots/theme-default/01.png?raw=true">)
 
 [//]: # ()
+
 [//]: # (<img border="rounded" src="https://github.com/slidevjs/themes/blob/main/screenshots/theme-seriph/01.png?raw=true">)
 
 [//]: # ()
+
 [//]: # (</div>)
 
 [//]: # ()
+
 [//]: # (Read more about [How to use a theme]&#40;https://sli.dev/themes/use.html&#41; and)
 
 [//]: # (check out the [Awesome Themes Gallery]&#40;https://sli.dev/themes/gallery.html&#41;.)
 
 [//]: # ()
+
 [//]: # (---)
 
 [//]: # (preload: false)
@@ -677,12 +793,15 @@ h1 {
 [//]: # (---)
 
 [//]: # ()
+
 [//]: # (# Animations)
 
 [//]: # ()
+
 [//]: # (Animations are powered by [@vueuse/motion]&#40;https://motion.vueuse.org/&#41;.)
 
 [//]: # ()
+
 [//]: # (```html)
 
 [//]: # (<div)
@@ -700,6 +819,7 @@ h1 {
 [//]: # (```)
 
 [//]: # ()
+
 [//]: # (<div class="w-60 relative mt-6">)
 
 [//]: # (  <div class="relative w-40 h-40">)
@@ -749,6 +869,7 @@ h1 {
 [//]: # (  </div>)
 
 [//]: # ()
+
 [//]: # (  <div)
 
 [//]: # (    class="text-5xl absolute top-14 left-40 text-[#2B90B6] -z-1")
@@ -766,6 +887,7 @@ h1 {
 [//]: # (</div>)
 
 [//]: # ()
+
 [//]: # (<!-- vue script setup scripts can be directly used in markdown, and will only affects current page -->)
 
 [//]: # (<script setup lang="ts">)
@@ -797,6 +919,7 @@ h1 {
 [//]: # (</script>)
 
 [//]: # ()
+
 [//]: # (<div)
 
 [//]: # (  v-motion)
@@ -806,27 +929,35 @@ h1 {
 [//]: # (  :enter="{ y: 0, opacity: 1, transition: { delay: 3500 } }">)
 
 [//]: # ()
+
 [//]: # ([Learn More]&#40;https://sli.dev/guide/animations.html#motion&#41;)
 
 [//]: # ()
+
 [//]: # (</div>)
 
 [//]: # ()
+
 [//]: # (---)
 
 [//]: # ()
+
 [//]: # (# LaTeX)
 
 [//]: # ()
+
 [//]: # (LaTeX is supported out-of-box powered by [KaTeX]&#40;https://katex.org/&#41;.)
 
 [//]: # ()
+
 [//]: # (<br>)
 
 [//]: # ()
+
 [//]: # (Inline $\sqrt{3x-1}+&#40;1+x&#41;^2$)
 
 [//]: # ()
+
 [//]: # (Block)
 
 [//]: # ($$)
@@ -834,40 +965,51 @@ h1 {
 [//]: # (\begin{array}{c})
 
 [//]: # ()
+
 [//]: # (\nabla \times \vec{\mathbf{B}} -\, \frac1c\, \frac{\partial\vec{\mathbf{E}}}{\partial t} &)
 
 [//]: # (= \frac{4\pi}{c}\vec{\mathbf{j}}    \nabla \cdot \vec{\mathbf{E}} & = 4 \pi \rho \\)
 
 [//]: # ()
+
 [//]: # (\nabla \times \vec{\mathbf{E}}\, +\, \frac1c\, \frac{\partial\vec{\mathbf{B}}}{\partial t} & = \vec{\mathbf{0}} \\)
 
 [//]: # ()
+
 [//]: # (\nabla \cdot \vec{\mathbf{B}} & = 0)
 
 [//]: # ()
+
 [//]: # (\end{array})
 
 [//]: # ($$)
 
 [//]: # ()
+
 [//]: # (<br>)
 
 [//]: # ()
+
 [//]: # ([Learn more]&#40;https://sli.dev/guide/syntax#latex&#41;)
 
 [//]: # ()
+
 [//]: # (---)
 
 [//]: # ()
+
 [//]: # (# Diagrams)
 
 [//]: # ()
+
 [//]: # (You can create diagrams / graphs from textual descriptions, directly in your Markdown.)
 
 [//]: # ()
+
 [//]: # (<div class="grid grid-cols-3 gap-10 pt-4 -mb-6">)
 
 [//]: # ()
+
 [//]: # (```mermaid {scale: 0.5})
 
 [//]: # (sequenceDiagram)
@@ -879,6 +1021,7 @@ h1 {
 [//]: # (```)
 
 [//]: # ()
+
 [//]: # (```mermaid {theme: 'neutral', scale: 0.8})
 
 [//]: # (graph TD)
@@ -892,6 +1035,7 @@ h1 {
 [//]: # (```)
 
 [//]: # ()
+
 [//]: # (```mermaid)
 
 [//]: # (mindmap)
@@ -931,11 +1075,13 @@ h1 {
 [//]: # (```)
 
 [//]: # ()
+
 [//]: # (```plantuml {scale: 0.7})
 
 [//]: # (@startuml)
 
 [//]: # ()
+
 [//]: # (package "Some Group" {)
 
 [//]: # (  HTTP - [First Component])
@@ -945,6 +1091,7 @@ h1 {
 [//]: # (})
 
 [//]: # ()
+
 [//]: # (node "Other Groups" {)
 
 [//]: # (  FTP - [Second Component])
@@ -954,6 +1101,7 @@ h1 {
 [//]: # (})
 
 [//]: # ()
+
 [//]: # (cloud {)
 
 [//]: # (  [Example 1])
@@ -961,7 +1109,9 @@ h1 {
 [//]: # (})
 
 [//]: # ()
+
 [//]: # ()
+
 [//]: # (database "MySql" {)
 
 [//]: # (  folder "This is my folder" {)
@@ -979,7 +1129,9 @@ h1 {
 [//]: # (})
 
 [//]: # ()
+
 [//]: # ()
+
 [//]: # ([Another Component] --> [Example 1])
 
 [//]: # ([Example 1] --> [Folder 3])
@@ -987,17 +1139,21 @@ h1 {
 [//]: # ([Folder 3] --> [Frame 4])
 
 [//]: # ()
+
 [//]: # (@enduml)
 
 [//]: # (```)
 
 [//]: # ()
+
 [//]: # (</div>)
 
 [//]: # ()
+
 [//]: # ([Learn More]&#40;https://sli.dev/guide/syntax.html#diagrams&#41;)
 
 [//]: # ()
+
 [//]: # (---)
 
 [//]: # (src: ./pages/multiple-entries.md)
@@ -1007,6 +1163,7 @@ h1 {
 [//]: # (---)
 
 [//]: # ()
+
 [//]: # (---)
 
 [//]: # (layout: center)
@@ -1016,7 +1173,9 @@ h1 {
 [//]: # (---)
 
 [//]: # ()
+
 [//]: # (# Learn More)
 
 [//]: # ()
+
 [//]: # ([Documentations]&#40;https://sli.dev&#41; · [GitHub]&#40;https://github.com/slidevjs/slidev&#41; · [Showcases]&#40;https://sli.dev/showcases.html&#41;)
